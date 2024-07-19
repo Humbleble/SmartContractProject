@@ -1,33 +1,80 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.9;
 
-// SPDX-License-Identifier: MIT
-// compiler version must be greater than or equal to 0.8.17 and less than 0.9.0
-pragma solidity ^0.8.17;
+contract LoyaltyToken {
+    string public name = "LoyaltyToken";
+    string public symbol = "LT";
+    uint8 public decimals = 18;
+    uint256 public totalSupply;
 
-contract SmartContract {
-    uint256 public balance;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => uint256) public loyaltyPoints;
 
-    // Function to deposit an amount
-    function deposit(uint256 amount) public {
-        // If true, store value. Otherwise, revert
-        require(amount > 50, "Deposit value must be greater than 50.");
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Mint(address indexed to, uint256 value);
+    event Burn(address indexed from, uint256 value);
+    event RedeemLoyaltyPoints(address indexed from, uint256 points, string benefit);
 
-        // Always true
-        assert(balance + amount > balance);
+    address public owner;
 
-        // Adds the deposited value to balance
-        balance += amount;
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can call this function");
+        _;
     }
 
-    // Function to withdraw an amount
-    function withdraw(uint256 amount) public {
-        require(amount > 0, "Withdrawal amount must be greater than zero.");
+    constructor() {
+        owner = msg.sender;
+    }
 
+    function mint(address _to, uint256 _amount) external onlyOwner {
+        require(_to != address(0), "Invalid address");
+        require(_amount > 0, "Mint amount must be greater than zero");
         
-        if (amount > balance) {
-            revert("Attempted withdrawal amount is higher than current balance.");
+        totalSupply += _amount;
+        balanceOf[_to] += _amount;
+
+        // Ensure the total supply never overflows
+        assert(totalSupply >= _amount);
+
+        emit Mint(_to, _amount);
+    }
+
+    function burn(uint256 _amount) external {
+        require(balanceOf[msg.sender] >= _amount, "Insufficient balance to burn");
+        require(_amount > 0, "Burn amount must be greater than zero");
+        
+        balanceOf[msg.sender] -= _amount;
+        totalSupply -= _amount;
+
+        // Ensure the total supply never underflows
+        assert(totalSupply <= totalSupply + _amount);
+
+        emit Burn(msg.sender, _amount);
+    }
+
+    function earnLoyaltyPoints(uint256 _amount) external {
+        require(_amount > 0, "Amount must be greater than zero");
+        loyaltyPoints[msg.sender] += _amount;
+
+        // Ensure the loyalty points do not overflow
+        assert(loyaltyPoints[msg.sender] >= _amount);
+    }
+
+    function redeemLoyaltyPoints(uint256 _points, string memory _benefit) external {
+        require(loyaltyPoints[msg.sender] >= _points, "Insufficient loyalty points");
+        require(bytes(_benefit).length > 0, "Benefit description required");
+
+        loyaltyPoints[msg.sender] -= _points;
+
+        // Example of using revert with a condition
+        if (loyaltyPoints[msg.sender] < 0) {
+            revert("Loyalty points cannot be negative");
         }
 
-        // Deduct withdrawn value from balance
-        balance -= amount;
+        emit RedeemLoyaltyPoints(msg.sender, _points, _benefit);
+    }
+
+    function Balance(address _account) external view returns (uint256) {
+        return balanceOf[_account];
     }
 }
